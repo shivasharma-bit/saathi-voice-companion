@@ -218,20 +218,8 @@ directory and never require a Rime API key. They cover:
 - Hindi support covers exactly two languages (English, Hindi) with hand-written Devanagari templates for a fixed set of call turns — not open-ended Hindi generation, and not other Indian languages yet. The Hindi Rime voice defaults to `nadi` (confirmed real Coda voice as of 2026-08-09, see README §5) — listen to it alongside the alternative `taru` before your demo and pick by ear.
 - Code-switching (mixing Hindi and English mid-sentence, common in real speech) is not specifically handled — `classify_intent` matches known phrases in either language but wasn't tested on mixed-language input.
 
-## 8. Team contributions
 
-*(fill in before submitting)*
-
-| Member | Contribution |
-|---|---|
-| [Name 1] | |
-| [Name 2] | |
-| [Name 3] | |
-| [Name 4] | |
-
-**AI-assisted coding disclosure:** [describe which parts used AI assistance, per hackathon rules — this codebase was scaffolded with AI assistance; document what your team reviewed, tested, and modified].
-
-## 9. Credits
+## 8. Credits
 
 - [Rime](https://docs.rime.ai/docs/introduction) — text-to-speech
 - [Qdrant](https://qdrant.tech/documentation/) — vector search & memory
