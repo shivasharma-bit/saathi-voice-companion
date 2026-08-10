@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Qdrant local embedded storage
+qdrant_data/
+tests/**/saathi_test_qdrant_*/
+
+# Patient registry (caregiver-added/edited patients — local dev data,
+# not something to commit; a fresh clone starts from demo patients only)
+backend/data/patients_store.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/

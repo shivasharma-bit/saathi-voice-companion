@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Saathi — Voice Medication Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Lexend:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Tailwind CDN config — soft healthcare-blue / slate / white trust palette,
+  // Lexend for accessible, highly legible type (target users include elderly
+  // family members watching the caregiver's screen).
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Lexend', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        },
+        colors: {
+          companion: {
+            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd',
+            400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8',
+            800: '#1e40af', 900: '#1e3a8a',
+          },
+        },
+        boxShadow: {
+          card: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -8px rgba(15,23,42,0.10)',
+          cardHover: '0 2px 4px rgba(15,23,42,0.06), 0 16px 32px -12px rgba(37,99,235,0.18)',
+        },
+      },
+    },
+  };
+</script>
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 font-sans antialiased">
+
+<!-- ============== Caregiver escalation alert — slides down from top ============== -->
+<div id="escalationBanner" class="escalation-banner">
+  <div class="max-w-5xl mx-auto flex items-center gap-3 px-5 py-4">
+    <span class="text-2xl leading-none" aria-hidden="true">🚨</span>
+    <p class="font-bold text-white text-[15px] sm:text-base leading-snug">
+      CAREGIVER ALERT: Consecutive missed doses detected. Escalating to family.
+    </p>
+    <button id="escalationDismiss" class="ml-auto text-white/80 hover:text-white text-xl leading-none px-2" aria-label="Dismiss">×</button>
+  </div>
+</div>
+
+<!-- ============== Top bar ============== -->
+<header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200">
+  <div class="max-w-6xl mx-auto flex items-center justify-between gap-4 px-5 py-3.5">
+    <div class="flex items-center gap-3">
+      <button id="homeBtn" class="flex items-center gap-3 group" title="Back to family dashboard">
+        <span class="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-companion-600 text-white font-serif italic font-semibold text-lg shadow-card group-hover:bg-companion-700 transition-colors">S</span>
+        <span class="text-left">
+          <span class="block font-bold text-lg text-slate-900 leading-tight">Saathi</span>
+          <span class="block text-[11px] uppercase tracking-wide text-slate-400 font-medium leading-tight">Voice Medication Companion</span>
+        </span>
+      </button>
+    </div>
+    <div id="statusBadges" class="flex items-center gap-2">
+      <span id="rimeBadge" class="badge badge-loading">Checking Rime…</span>
+      <span id="visionBadge" class="badge badge-loading">Checking Photo Reader…</span>
+      <span id="qdrantBadge" class="badge badge-loading">Checking Qdrant…</span>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-5 py-8">
+
+  <!-- ============================================================ -->
+  <!-- DASHBOARD VIEW — the family list ("who is Saathi caring for") -->
+  <!-- ============================================================ -->
+  <section id="dashboardView">
+    <div class="flex items-end justify-between mb-6">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Your family</h1>
+        <p class="text-slate-500 mt-1 text-sm sm:text-base">Add a parent or grandparent, set their medicine schedule, and Saathi checks in on your behalf.</p>
+      </div>
+    </div>
+
+    <div id="familyGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- CALL VIEW — per-patient check-in call simulator -->
+  <!-- ============================================================ -->
+  <section id="callView" class="hidden">
+    <button id="backToFamilyBtn" class="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-companion-700 hover:text-companion-800">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back to family
+    </button>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
+
+      <!-- LEFT: call stage -->
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-card p-6 sm:p-8">
+
+        <div class="flex items-center justify-between mb-1">
+          <h2 id="callPatientName" class="text-xl font-bold text-slate-900">—</h2>
+          <button id="editPatientBtn" class="text-sm font-semibold text-companion-700 hover:text-companion-800 flex items-center gap-1">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Fix dose time
+          </button>
+        </div>
+        <p id="callPatientSub" class="text-sm text-slate-400 mb-6">—</p>
+
+        <!-- persona badge -->
+        <div id="personaBadge" class="inline-flex items-center gap-1.5 mb-6 px-3 py-1 rounded-full bg-companion-50 text-companion-700 text-xs font-semibold">
+          <span class="h-1.5 w-1.5 rounded-full bg-companion-500"></span>
+          <span id="personaBadgeText">Lyra</span>
+        </div>
+
+        <div class="stage">
+          <div id="orb" class="orb is-idle">
+            <div class="orb-core"></div>
+            <div class="orb-ring orb-ring-1"></div>
+            <div class="orb-ring orb-ring-2"></div>
+            <div id="waveform" class="waveform"></div>
+          </div>
+          <p id="caption" class="caption">Press <em>Start Check-in Call</em> to begin.</p>
+          <p id="captionMeta" class="caption-meta">&nbsp;</p>
+        </div>
+
+        <div id="fallbackNotice" class="notice hidden">
+          Rime is not configured — playing an offline browser fallback voice instead of real Rime audio.
+          Set <code>RIME_API_KEY</code> in <code>.env</code> for the real experience.
+        </div>
+        <div id="fallbackVoiceWarning" class="notice notice-warning hidden"></div>
+
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-2">
+          <button id="startCallBtn" class="btn-primary">Start Check-in Call</button>
+
+          <!-- HERO mic button: glowing pulse ring while listening -->
+          <button id="micBtn" class="mic-hero" disabled title="Start a call first" aria-label="Speak">
+            <span class="mic-hero-ring"></span>
+            <span class="mic-hero-ring mic-hero-ring-delay"></span>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z" stroke="currentColor" stroke-width="2"/><path d="M19 11a7 7 0 01-14 0M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="text-center text-xs text-slate-400 mt-2">Tap the microphone and speak, or type below</p>
+
+        <form id="textForm" class="text-form">
+          <input id="textInput" type="text" placeholder="Or type the patient's reply, e.g. 'yes I took it'" disabled />
+          <button type="submit" class="btn-secondary" disabled id="sendBtn">Send</button>
+        </form>
+
+        <details class="transcript-wrap" open>
+          <summary>Call transcript</summary>
+          <div id="transcript" class="transcript">
+            <p class="transcript-empty">The conversation will appear here as it happens.</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- RIGHT: Qdrant "brain" panel -->
+      <aside class="space-y-5">
+        <div class="brain-panel">
+          <div class="brain-panel-header">
+            <span class="brain-dot"></span>
+            <h3>Qdrant — Patient Memory</h3>
+          </div>
+          <div id="memoryBox" class="brain-box">
+            <p class="muted">No memory loaded yet.</p>
+          </div>
+        </div>
+
+        <div class="brain-panel">
+          <div class="brain-panel-header">
+            <span class="brain-dot"></span>
+            <h3>Qdrant — Similar Cases</h3>
+          </div>
+          <div id="similarBox" class="brain-box">
+            <p class="muted">Appears after the first call turn.</p>
+          </div>
+        </div>
+
+        <div class="brain-panel">
+          <div class="brain-panel-header">
+            <span class="brain-dot brain-dot-amber"></span>
+            <h3>Caregiver Alerts</h3>
+          </div>
+          <div id="alertsBox" class="brain-box">
+            <p class="muted">No alerts yet.</p>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </section>
+
+</main>
+
+<footer class="max-w-6xl mx-auto px-5 py-8 text-center text-xs text-slate-400">
+  Saathi · StarForge 2026 VoxForge prototype · Rime + Qdrant · Synthetic demo data only
+</footer>
+
+<!-- ============================================================ -->
+<!-- ADD / EDIT FAMILY MEMBER MODAL -->
+<!-- ============================================================ -->
+<div id="patientModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="flex items-center justify-between mb-5">
+      <h2 id="modalTitle" class="text-xl font-bold text-slate-900">Add a family member</h2>
+      <button id="modalClose" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
+    </div>
+
+    <div class="flex gap-2 mb-5" role="tablist">
+      <button id="tabPhotoBtn" class="modal-tab modal-tab-active" role="tab">📷 Upload prescription photo</button>
+      <button id="tabManualBtn" class="modal-tab" role="tab">✍️ Enter manually</button>
+    </div>
+
+    <!-- Photo tab -->
+    <div id="tabPhoto" class="space-y-4">
+      <label for="photoInput" class="photo-dropzone">
+        <img id="photoPreview" class="hidden max-h-40 mx-auto rounded-xl object-contain" alt="" />
+        <span id="photoDropzoneText">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" class="mx-auto mb-2 text-companion-500"><path d="M4 16l4.5-6 3.5 4.5 2.5-3L20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="9" r="1.25" fill="currentColor"/></svg>
+          Tap to take or choose a photo of the prescription / medicine label
+        </span>
+      </label>
+      <input id="photoInput" type="file" accept="image/*" capture="environment" class="hidden" />
+      <button id="parsePhotoBtn" class="btn-secondary w-full" disabled>Read photo</button>
+      <p id="parseStatus" class="text-sm text-slate-500 hidden"></p>
+    </div>
+
+    <!-- Manual tab (also where photo-parsed fields land for confirmation) -->
+    <div id="tabManual" class="space-y-4 hidden">
+      <div>
+        <label class="form-label">Name</label>
+        <input id="fieldName" type="text" class="form-input" placeholder="e.g. Amma, Papa, Dadi" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="form-label">Relation</label>
+          <select id="fieldRelation" class="form-input">
+            <option>Mother</option><option>Father</option><option>Grandmother</option>
+            <option>Grandfather</option><option>Family member</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Language</label>
+          <select id="fieldLanguage" class="form-input">
+            <option value="en">English (Lyra)</option>
+            <option value="hi">हिंदी Hindi (Nadi)</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Medicine (name + strength)</label>
+        <input id="fieldMedicine" type="text" class="form-input" placeholder="e.g. Amlodipine 5mg" />
+      </div>
+      <div>
+        <label class="form-label">Dose schedule</label>
+        <input id="fieldSchedule" type="text" class="form-input" placeholder="e.g. 9:00 AM, or twice daily" />
+      </div>
+      <div>
+        <label class="form-label">Risk level</label>
+        <select id="fieldRisk" class="form-input">
+          <option value="normal">Normal</option>
+          <option value="elevated">Elevated</option>
+        </select>
+      </div>
+      <p id="visionNote" class="text-xs text-companion-700 bg-companion-50 rounded-lg px-3 py-2 hidden"></p>
+    </div>
+
+    <div class="flex gap-3 mt-6">
+      <button id="modalCancel" class="btn-secondary flex-1">Cancel</button>
+      <button id="modalSave" class="btn-primary flex-1">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
